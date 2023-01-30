@@ -1,6 +1,5 @@
-# ShortenerNFT
+# Shortener NFT
 
-ShortenerNFT
 This project is a smart contract for a non-fungible token (NFT) shortener. It allows users to create short URLs that can be associated with a unique NFT token. The short URLs can be accessed only by whitelisted users.
 
 ## Features
