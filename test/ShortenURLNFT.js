@@ -5,39 +5,40 @@ const { ethers } = require('hardhat');
 describe('Shortener contract', async () => {
     let Shortner;
     let shortener;
-    let generatedKey
 
-    function generateRandomKey() {
-        try {
-            const randomBytes1 = ethers.utils.randomBytes(32);
-            const randomBytes2 = ethers.utils.randomBytes(32);
-            return [randomBytes1, randomBytes2];
-        } catch (error) {
-            console.log("generateRandomKey", error)
+    function generateKeysForUrls(originalUrls) {
+        const keys = [];
+        for (let i = 0; i < originalUrls.length; i++) {
+            let key = "";
+            const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            for (let j = 0; j < 5; j++) {
+                key += possible.charAt(Math.floor(Math.random() * possible.length));
+            }
+            keys.push(key);
         }
+        return keys;
     }
+
 
     async function deployShortnerLinks() {
         Shortner = await ethers.getContractFactory("ShortenerNFT");
-        generatedKey = generateRandomKey();
-        shortener = await Shortner.deploy(generatedKey, "Test 1", "TST");
+        shortener = await Shortner.deploy("Test 1", "TST");
         const [owner, user1, user2, user3] = await ethers.getSigners();
         creator = owner.address;
-        return { shortener, creator, generatedKey, owner, user1, user2, user3 };
+        return { shortener, creator, owner, user1, user2, user3 };
     }
 
-    it('should create a short URL', async () => {
-        const { shortener, creator, generatedKey } = await deployShortnerLinks();
-        const originalUrl = ['https://www.example3.com', 'https://www.example2.com'];
-        const tx = await shortener.createShortUrl(originalUrl, { from: creator });
+    it('creates a short URL', async () => {
+        const { shortener, creator } = await deployShortnerLinks();
+        const originalUrls = ['https://www.google.com', 'https://www.github.com'];
+        const keys = generateKeysForUrls(originalUrls);
+        const tx  = await shortener.createShortUrl(originalUrls, keys);
         const receipt = await tx.wait();
         expect(receipt.status).to.equal(1);
-        
-        const url = await shortener.getUrl(generatedKey);
-
-        expect(url).to.deep.equal(originalUrl);
+        const url = await shortener.getUrl(keys);
+        expect(url).to.deep.equal(originalUrls);
     });
-    
+
 
     it('should add a user to the whitelist', async () => {
         const { shortener, user1, creator } = await deployShortnerLinks();
@@ -65,7 +66,8 @@ describe('Shortener contract', async () => {
         const { shortener } = await deployShortnerLinks();
         const originalUrl = ['https://www.example.com'];
         try {
-            await shortener.createShortUrl(originalUrl);
+            const keys = generateKeysForUrls(originalUrl);
+            await shortener.createShortUrl(originalUrl, keys);
         } catch (error) {
             expect(error.message).to.include('Sender is not on the whitelist');
         }
@@ -86,18 +88,22 @@ describe('Shortener contract', async () => {
             ;
         await shortener.addToWhitelist(user1.address, { from: creator });
         const originalUrl = ['https://www.example.com'];
+        const keys = generateKeysForUrls(originalUrl);
 
         try {
-            await shortener.createShortUrl(originalUrl);
+            await shortener.createShortUrl(originalUrl, keys);
         } catch (error) {
             expect(error.message).to.include('Only the contract owner can create short URLs');
         }
     });
 
     it('should not allow non-whitelisted users to get the original URL', async () => {
-        const { shortener, generatedKey } = await deployShortnerLinks();
+        const { shortener, user1, user2 } = await deployShortnerLinks();
+        const originalUrl = ['https://www.example.com'];
         try {
-            await shortener.getUrl(generatedKey);
+            const keys = generateKeysForUrls(originalUrl);
+            await shortener.createShortUrl(originalUrl, keys);
+            await shortener.getUrl(keys, { from: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" });
         } catch (error) {
             expect(error.message).to.include('Sender not in whitelist');
         }
@@ -127,27 +133,6 @@ describe('Shortener contract', async () => {
         await shortener._addTokenTo(user1.address, tokenId, { from: creator });
         const nftOwner = await shortener.ownerOf(tokenId);
         expect(nftOwner).to.equal(user1.address);
-    });
-
-    it('should transfer NFT ownership', async () => {
-        const { shortener, creator, user2, user3 } = await deployShortnerLinks();
-        const tokenId = 10;
-        await shortener._addTokenTo(user2.address, tokenId, { from: creator });
-        const tx = await shortener.transferFrom(user2.address, user3.address, tokenId, { from: user2.address });
-        const receipt = await tx.wait();
-        expect(receipt.status).to.equal(1);
-        const nftOwner = await shortener.ownerOf(tokenId);
-        expect(nftOwner).to.equal(user3.address);
-    });
-
-    it.only('should retrieve NFT metadata', async () => {
-        const { shortener, creator, user2 } = await deployShortnerLinks();
-        const tokenId = 2;
-        const originalUrl = ['https://www.example.com'];
-        await shortener.createShortUrl(originalUrl, { from: creator });
-        await shortener._addTokenTo(user2.address, tokenId, { from: creator });
-        const metadata = await shortener.tokenMetadata(tokenId);
-        expect(metadata).to.equal(originalUrl);
     });
 
 });

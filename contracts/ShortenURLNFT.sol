@@ -9,7 +9,7 @@ contract ShortenerNFT is ERC721, ERC721URIStorage, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
 
-    mapping(bytes32 => Url) public urls;
+    mapping(string => Url) public urls;
     mapping(address => bool) public whitelist;
 
     struct Url {
@@ -19,28 +19,26 @@ contract ShortenerNFT is ERC721, ERC721URIStorage, Ownable {
 
     Url[] public urlsArray;
 
-    bytes32[] shortId;
+    string[] shortId;
 
-    event ShortUrlCreated(bytes32 shortId, string originalUrl, address creator);
+    event ShortUrlCreated(string shortId, string originalUrl, address creator);
 
-    constructor(
-        bytes32[] memory randomKey,
-        string memory name,
-        string memory symbol
-    ) ERC721(name, symbol) {
+    constructor(string memory name, string memory symbol) ERC721(name, symbol) {
         whitelist[msg.sender] = true;
-        shortId = randomKey;
     }
 
-    function createShortUrl(string[] memory originalUrls) public onlyOwner {
+    function createShortUrl(
+        string[] memory originalUrls,
+        string[] memory _shortId
+    ) public onlyOwner {
         for (uint256 i = 0; i < originalUrls.length; i++) {
             uint256 tokenId = _tokenIds.current();
-            urls[shortId[i]] = Url(originalUrls[i], msg.sender);
-            urlsArray.push(urls[shortId[i]]);
+            urls[_shortId[i]] = Url(originalUrls[i], msg.sender);
+            urlsArray.push(urls[_shortId[i]]);
             _mintNFT(msg.sender, tokenId);
 
             // Emit the event
-            emit ShortUrlCreated(shortId[i], originalUrls[i], msg.sender);
+            emit ShortUrlCreated(_shortId[i], originalUrls[i], msg.sender);
         }
     }
 
@@ -62,7 +60,7 @@ contract ShortenerNFT is ERC721, ERC721URIStorage, Ownable {
         return super.tokenURI(tokenId);
     }
 
-    function getUrl(bytes32[] memory _shortIds)
+    function getUrl(string[] memory _shortIds)
         public
         view
         returns (string[] memory)
