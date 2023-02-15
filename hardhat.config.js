@@ -1,15 +1,17 @@
-// shortener-smartcontracts/hardhat.config.js
 require('dotenv').config();
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomiclabs/hardhat-web3");
 
 const { ALCHEMY_API_KEY, PRIVATE_KEY, ETHERSCAN_KEY, BSCSCAN_KEY } = process.env;
-/** @type import('hardhat/config').HardhatUserConfig */
+
+const exportAbi = require('./scripts/export-abi');
+
 module.exports = {
   paths: {
     artifacts: "./artifacts",
     sources: "./contracts",
     tests: "./test",
+    scripts: "./scripts",
   },
   solidity: {
     version: "0.8.18",
@@ -39,5 +41,13 @@ module.exports = {
   testRunnerOptions: {
     testFiles: ['test/ShortenURL.js'],
     testEnvironment: 'node',
-  }
+  },
+  tasks: {
+    exportAbi,
+  },
+  abiExporter: {
+    path: './abi',
+    clear: true,
+    flat: true,
+  },
 };
