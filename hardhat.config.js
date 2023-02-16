@@ -8,6 +8,7 @@ const exportAbi = require('./scripts/export-abi');
 
 module.exports = {
   paths: {
+    root: "./",
     artifacts: "./artifacts",
     sources: "./contracts",
     tests: "./test",
