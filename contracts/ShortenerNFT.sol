@@ -24,17 +24,10 @@ contract ShortenerNFT is ERC721, ERC721URIStorage, Ownable {
     event ShortUrlCreated(string shortId, string originalUrl, address creator);
 
     constructor(
-        string[] memory originalUrls,
-        string[] memory _shortIds,
         string memory name,
         string memory symbol
     ) ERC721(name, symbol) {
         whitelist[msg.sender] = true;
-
-        for (uint256 i = 0; i < originalUrls.length; i++) {
-            urls[_shortIds[i]] = Url(originalUrls[i], msg.sender);
-            urlsArray.push(urls[_shortIds[i]]);
-        }
     }
 
     function createShortUrl(

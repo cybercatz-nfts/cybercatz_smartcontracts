@@ -11,7 +11,6 @@ module.exports = {
     root: "./",
     artifacts: "./artifacts",
     sources: "./contracts",
-    tests: "./test",
     scripts: "./scripts",
   },
   solidity: {

@@ -21,17 +21,15 @@ describe('Shortener contract', async () => {
 
 
     async function deployShortnerLinks() {
-        const originalUrls = ['https://www.google.com', 'https://www.github.com'];
-        const keys = generateKeysForUrls(originalUrls);
         Shortner = await ethers.getContractFactory("ShortenerNFT");
-        shortener = await Shortner.deploy(originalUrls, keys, "Test 1", "TST");
+        shortener = await Shortner.deploy("Test 1", "TST");
         const [owner, user1, user2, user3] = await ethers.getSigners();
         creator = owner.address;
         return { shortener, creator, owner, user1, user2, user3 };
     }
 
     it('creates a short URL', async () => {
-        const { shortener, creator } = await deployShortnerLinks();
+        const { shortener } = await deployShortnerLinks();
         const originalUrls = ['https://www.google.com', 'https://www.github.com'];
         const keys = generateKeysForUrls(originalUrls);
         const tx  = await shortener.createShortUrl(originalUrls, keys);
