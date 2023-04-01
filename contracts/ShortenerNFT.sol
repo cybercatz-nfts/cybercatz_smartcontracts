@@ -31,17 +31,17 @@ contract ShortenerNFT is ERC721, ERC721URIStorage, Ownable {
     }
 
     function createShortUrl(
-        string[] memory originalUrls,
+        string[] memory _url,
         string[] memory _shortId
     ) public onlyOwner {
-        for (uint256 i = 0; i < originalUrls.length; i++) {
+        for (uint256 i = 0; i < _url.length; i++) {
             uint256 tokenId = _tokenIds.current();
-            urls[_shortId[i]] = Url(originalUrls[i], msg.sender);
+            urls[_shortId[i]] = Url(_url[i], msg.sender);
             urlsArray.push(urls[_shortId[i]]);
             _mintNFT(msg.sender, tokenId);
 
             // Emit the event
-            emit ShortUrlCreated(_shortId[i], originalUrls[i], msg.sender);
+            emit ShortUrlCreated(_shortId[i], _url[i], msg.sender);
         }
     }
 
@@ -70,11 +70,11 @@ contract ShortenerNFT is ERC721, ERC721URIStorage, Ownable {
     {
         require(whitelist[msg.sender], "Sender not in whitelist.");
 
-        string[] memory originalUrls = new string[](_shortIds.length);
+        string[] memory _url = new string[](_shortIds.length);
         for (uint256 i = 0; i < _shortIds.length; i++) {
-            originalUrls[i] = urls[_shortIds[i]].originalUrl;
+            _url[i] = urls[_shortIds[i]].originalUrl;
         }
-        return originalUrls;
+        return _url;
     }
 
     function addToWhitelist(address user) public onlyOwner {
