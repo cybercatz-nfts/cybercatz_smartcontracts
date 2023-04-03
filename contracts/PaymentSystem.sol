@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-contract PaymentSystem {
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract PaymentSystem is Ownable {
+    address public _owner;
+
     struct Payment {
         uint256 id;
         address buyer;
@@ -12,8 +16,6 @@ contract PaymentSystem {
     }
 
     mapping(uint256 => Payment) public payments;
-    uint256 public paymentCounter;
-    address public owner;
 
     event PaymentCreated(
         uint256 paymentId,
@@ -28,20 +30,28 @@ contract PaymentSystem {
         uint256 value
     );
 
+
     constructor() {
-        owner = msg.sender;
-        paymentCounter = 1;
+        _owner = msg.sender;
     }
 
-    function createPayment(address buyer, address seller) public payable {
-        require(
-            msg.sender == buyer || msg.sender == seller,
-            "Only buyer or seller can create a payment"
-        );
+    function createPayment(
+        uint256 paymentId,
+        address buyer,
+        address seller
+    ) public payable {
         require(msg.value > 0, "Value must be greater than 0");
+        require(
+            !payments[paymentId].exists,
+            "Payment with this ID already exists"
+        );
+        require(
+            buyer == msg.sender,
+            "Only contract buyer can create a payment"
+        );
 
-        payments[paymentCounter] = Payment({
-            id: paymentCounter,
+        payments[paymentId] = Payment({
+            id: paymentId,
             buyer: buyer,
             seller: seller,
             value: msg.value,
@@ -49,30 +59,32 @@ contract PaymentSystem {
             exists: true
         });
 
-        emit PaymentCreated(paymentCounter, buyer, seller, msg.value);
-
-        paymentCounter++;
+        emit PaymentCreated(paymentId, buyer, seller, msg.value);
     }
 
-    function releasePayment(uint256 paymentId) public {
-        Payment storage payment = payments[paymentId];
-        require(payment.exists, "Payment does not exist");
-        require(
-            msg.sender == payment.seller,
-            "Only seller can release the payment"
-        );
-        require(payment.value > 0, "Payment value must be greater than 0");
-        require(!payment.released, "Payment has already been released");
-        payment.released = true;
-        payable(payment.buyer).transfer(payment.value);
+function releasePayment(uint256 paymentId, address payable seller) public {
+    Payment storage payment = payments[paymentId];
+    require(payment.exists, "Payment does not exist");
+    require(payment.value > 0, "Payment value must be greater than 0");
+    require(
+        address(this).balance >= payment.value,
+        "Contract balance is not enough to release payment"
+    );
+    require(!payment.released, "Payment has already been released");
+    require(
+        address(this).balance >= payment.value,
+        "Insufficient contract balance"
+    );
+    require(
+        seller == msg.sender || msg.sender == _owner,
+        "Only contract owner or seller can release a payment"
+    );
+    payment.released = true;
+    seller.transfer(payment.value);
 
-        emit PaymentReleased(
-            paymentId,
-            payment.buyer,
-            payment.seller,
-            payment.value
-        );
-    }
+    emit PaymentReleased(paymentId, payment.buyer, seller, payment.value);
+}
+
 
     function getPayment(
         uint256 paymentId
@@ -88,8 +100,8 @@ contract PaymentSystem {
         return payment.released;
     }
 
-    function withdraw() public {
-        require(msg.sender == owner, "Only contract owner can withdraw");
-        payable(owner).transfer(address(this).balance);
+    function withdraw() public onlyOwner {
+        require(msg.sender == owner(), "Only contract owner can withdraw");
+        payable(owner()).transfer(address(this).balance);
     }
 }
