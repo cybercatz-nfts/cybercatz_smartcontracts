@@ -11,8 +11,13 @@ contract PaymentSystem is Ownable {
         address buyer;
         address seller;
         uint256 value;
-        bool released;
+        PaymentStatus status;
         bool exists;
+    }
+    enum PaymentStatus {
+        OPEN,
+        PAID,
+        RELEASED
     }
 
     mapping(uint256 => Payment) public payments;
@@ -29,7 +34,6 @@ contract PaymentSystem is Ownable {
         address seller,
         uint256 value
     );
-
 
     constructor() {
         _owner = msg.sender;
@@ -55,36 +59,48 @@ contract PaymentSystem is Ownable {
             buyer: buyer,
             seller: seller,
             value: msg.value,
-            released: false,
+            status: PaymentStatus.PAID,
             exists: true
         });
 
         emit PaymentCreated(paymentId, buyer, seller, msg.value);
     }
 
-function releasePayment(uint256 paymentId, address payable seller) public {
-    Payment storage payment = payments[paymentId];
-    require(payment.exists, "Payment does not exist");
-    require(payment.value > 0, "Payment value must be greater than 0");
-    require(
-        address(this).balance >= payment.value,
-        "Contract balance is not enough to release payment"
-    );
-    require(!payment.released, "Payment has already been released");
-    require(
-        address(this).balance >= payment.value,
-        "Insufficient contract balance"
-    );
-    require(
-        seller == msg.sender || msg.sender == _owner,
-        "Only contract owner or seller can release a payment"
-    );
-    payment.released = true;
-    seller.transfer(payment.value);
+    function releasePayment(uint256 paymentId) public {
+        Payment storage payment = payments[paymentId];
+        require(payment.exists, "Payment does not exist");
+        require(payment.value > 0, "Payment value must be greater than 0");
+        require(
+            address(this).balance >= payment.value,
+            "Contract balance is not enough to release payment"
+        );
+        require(
+            payment.status == PaymentStatus.PAID,
+            "Payment has already been released or is not paid"
+        );
+        require(
+            address(this).balance >= payment.value,
+            "Insufficient contract balance"
+        );
+        // Only the seller or the contract owner can release the payment
+        require(
+            payment.seller == msg.sender || msg.sender == _owner,
+            "Only contract owner or seller can release a payment"
+        );
 
-    emit PaymentReleased(paymentId, payment.buyer, seller, payment.value);
-}
+        uint256 fee = (payment.value * 5) / 100; // Calculate the 5% fee
+        uint256 amountToTransfer = payment.value - fee; // Deduct the fee from the payment value
 
+        payment.status = PaymentStatus.RELEASED;
+        payable(payment.seller).transfer(amountToTransfer); // Transfer the remaining amount to the seller
+
+        emit PaymentReleased(
+            paymentId,
+            payment.buyer,
+            payment.seller,
+            amountToTransfer
+        );
+    }
 
     function getPayment(
         uint256 paymentId
@@ -94,10 +110,12 @@ function releasePayment(uint256 paymentId, address payable seller) public {
         return payment;
     }
 
-    function getPaymentStatus(uint256 paymentId) public view returns (bool) {
+    function getPaymentStatus(
+        uint256 paymentId
+    ) public view returns (PaymentStatus) {
         Payment memory payment = payments[paymentId];
         require(payment.exists, "Payment does not exist");
-        return payment.released;
+        return payment.status;
     }
 
     function withdraw() public onlyOwner {
