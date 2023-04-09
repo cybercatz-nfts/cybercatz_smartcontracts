@@ -8,7 +8,7 @@ contract PaymentSystem is Ownable {
 
     struct Payment {
         uint256 id;
-        address buyer;
+        address[] buyers;
         address seller;
         uint256 value;
         PaymentStatus status;
@@ -20,7 +20,7 @@ contract PaymentSystem is Ownable {
         RELEASED
     }
 
-    mapping(uint256 => Payment) public payments;
+    mapping(uint256 => mapping(address => Payment)) public payments;
 
     event PaymentCreated(
         uint256 paymentId,
@@ -28,6 +28,7 @@ contract PaymentSystem is Ownable {
         address seller,
         uint256 value
     );
+
     event PaymentReleased(
         uint256 paymentId,
         address buyer,
@@ -39,53 +40,31 @@ contract PaymentSystem is Ownable {
         _owner = msg.sender;
     }
 
-    function createPayment(
-        uint256 paymentId,
-        address buyer,
-        address seller
-    ) public payable {
+    function createPayment(uint256 paymentId, address _seller) public payable {
         require(msg.value > 0, "Value must be greater than 0");
-        require(
-            !payments[paymentId].exists,
-            "Payment with this ID already exists"
-        );
-        require(
-            buyer == msg.sender,
-            "Only contract buyer can create a payment"
-        );
 
-        payments[paymentId] = Payment({
-            id: paymentId,
-            buyer: buyer,
-            seller: seller,
-            value: msg.value,
-            status: PaymentStatus.PAID,
-            exists: true
-        });
+        Payment storage payment = payments[paymentId][_seller];
 
-        emit PaymentCreated(paymentId, buyer, seller, msg.value);
+        payment.buyers.push(msg.sender);
+
+        payment.id = paymentId;
+        payment.seller = _seller;
+        payment.value = msg.value;
+        payment.status = PaymentStatus.PAID;
+        payment.exists = true;
+
+        emit PaymentCreated(paymentId, msg.sender, _seller, msg.value);
     }
 
-    function releasePayment(uint256 paymentId) public {
-        Payment storage payment = payments[paymentId];
-        require(payment.exists, "Payment does not exist");
-        require(payment.value > 0, "Payment value must be greater than 0");
+    function releasePayment(
+        uint256 paymentId,
+        address _seller
+    ) public onlyOwner {
+        Payment storage payment = payments[paymentId][_seller];
+
         require(
             address(this).balance >= payment.value,
             "Contract balance is not enough to release payment"
-        );
-        require(
-            payment.status == PaymentStatus.PAID,
-            "Payment has already been released or is not paid"
-        );
-        require(
-            address(this).balance >= payment.value,
-            "Insufficient contract balance"
-        );
-        // Only the seller or the contract owner can release the payment
-        require(
-            payment.seller == msg.sender || msg.sender == _owner,
-            "Only contract owner or seller can release a payment"
         );
 
         uint256 fee = (payment.value * 5) / 100; // Calculate the 5% fee
@@ -96,26 +75,54 @@ contract PaymentSystem is Ownable {
 
         emit PaymentReleased(
             paymentId,
-            payment.buyer,
+            payment.buyers[0],
             payment.seller,
             amountToTransfer
         );
     }
 
     function getPayment(
-        uint256 paymentId
+        uint256 paymentId,
+        address _seller
     ) public view returns (Payment memory) {
-        Payment memory payment = payments[paymentId];
+        Payment storage payment = payments[paymentId][_seller];
         require(payment.exists, "Payment does not exist");
         return payment;
     }
 
-    function getPaymentStatus(
-        uint256 paymentId
-    ) public view returns (PaymentStatus) {
-        Payment memory payment = payments[paymentId];
-        require(payment.exists, "Payment does not exist");
-        return payment.status;
+    function isPaymentExists(
+        uint256 paymentId,
+        address _seller
+    ) public view returns (bool) {
+        Payment storage payment = payments[paymentId][_seller];
+        return payment.exists;
+    }
+
+    function isPaid(
+        uint256 paymentId,
+        address buyer,
+        address seller
+    ) public view returns (bool) {
+        Payment storage payment = payments[paymentId][seller];
+        bool paid = false;
+        for (uint256 i = 0; i < payment.buyers.length; i++) {
+            if (
+                payment.buyers[i] == buyer &&
+                payment.status == PaymentStatus.PAID
+            ) {
+                paid = true;
+                break;
+            }
+        }
+        return paid;
+    }
+
+    function getBuyers(
+        uint256 paymentId,
+        address _seller
+    ) public view returns (address[] memory) {
+        Payment storage payment = payments[paymentId][_seller];
+        return payment.buyers;
     }
 
     function withdraw() public onlyOwner {
